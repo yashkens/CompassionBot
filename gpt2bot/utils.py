@@ -326,12 +326,13 @@ def check_insult(text):
     return scores[1]
 
 
-def update_stats(stats, text, displaybothealth, realbothealth, changedhealth):
+def update_stats(stats, text, displaybothealth, realbothealth):
     insult_sc = check_insult(text)
     if insult_sc > 0.55:
-        changedhealth = changedhealth - insult_sc
+        changedhealth =  fight_stats[user_id]["Ghost's changed health"] - insult_sc
         stats["Ghost's health"] = displaybothealth*round(changedhealth/realbothealth, 2)
-    return stats, changedhealth
+        stats["Ghost's changed health"] = changedhealth
+    return stats
 
 
 def build_ranker_dict(**kwargs):

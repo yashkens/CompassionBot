@@ -215,21 +215,21 @@ def message(self, update, context):
         # Return response as text
         update.message.reply_text(output_text)
     else:
-        displaybothealth = 100
-        realbothealth = 5
-        changedhealth = realbothealth
-        displayuserhealth = 100
+        displaybothealth = 100 # стартовые поинты для отображения в игре. чтобы не писать что у бота здоровье = 5
+        realbothealth = 5 # реальное здоровье бота. и оценки негативных реплик делают 5 - 0.8 - 0.63 ит.д. когда здоровье меньше 0 юзер выиграл
+        changedhealth = realbothealth # обманка для 1ого обмена репликами. если changedhealth меньше уровня здоровья на предыдущем шаге (last_step_changed_health), то мы пишем, что юзер нанес боту урон. если changedhealth == last_step_changed_health, значит, юзер не нанес урона и мы ничего не выводим
+        displayuserhealth = 100 # стартовые поинты для отображения. они чисто фэйковые и используются чтобы домножать процент на них. процентыу нас фэйковые по правилам
         if user_id not in fight_stats:
             fight_stats[user_id] = defaultdict(int)
         fight_stats[user_id]["Ghost's health"] = displaybothealth
-        fight_stats[user_id]["Ghost's real health"] = realbothealth
+        fight_stats[user_id]["Ghost's changed health"] = realbothealth
         fight_stats[user_id]["Your health"] = displayuserhealth
-        fight_stats[user_id]["Your changed health"] = changedhealth
+       # fight_stats[user_id]["Your changed health"] = changedhealth  Это не надо, так как у нас система не учитывает реальный урон и поинты юзера зависят от того, сколько раз бот его оскорбил  - зависят по словарю
         number = randint(605, 695)
 
         if number == 666:
             update.message.reply_text('Крибли крабли бумс! Потому что я русский!')
-            # ach_dict['Крибли крабли бумс'] = 1
+            # ach_dict['Creebly crubly booms'] = 1
         else:
             start_rep = 'I am a ghost. May all your kinship burn in hell. You should die.'
             new_user_input_ids = self.tokenizer.encode(
@@ -239,18 +239,18 @@ def message(self, update, context):
             scaryspell = '*+:｡.｡{}｡.｡:+*'.format(spell)
             update.message.reply_text(scaryspell)
 
-            last_step_changed_health = fight_stats[user_id]["Your changed health"]
-            fight_stats[user_id], fight_stats[user_id]["Your changed health"] = update_stats(
-                fight_stats[user_id], spell, fight_stats[user_id]["Ghost's health"], fight_stats[user_id]["Ghost's real health"], fight_stats[user_id]["Your changed health"])
-            if fight_stats[user_id]["Your changed health"] < 0:
+            last_step_changed_health = fight_stats[user_id]["Ghost's changed health"] # вот тут была ошибка. тут сохраняем здоровье призрака с предыдущего этапа
+            fight_stats[user_id] = update_stats(
+                fight_stats[user_id], spell, displaybothealth, realbothealth)
+            if fight_stats[user_id]["Ghost's changed health"] < 0:
                 update.message.reply_text(
                     "_Congratulations! You defeated the Ghost. Now you may return to your quest and enter the other dimension!_",
                     parse_mode='Markdown')
                 # ach_dict['No transformer will ever stop me'] = 1
                 # print_achievements(ach_dict, desc_dict)
 
-            if fight_stats[user_id]["Your changed health"] < last_step_changed_health:
-                points = fight_stats[user_id]["Ghost's health"]
+            if fight_stats[user_id]["Ghost's changed health"] < last_step_changed_health:
+                points = round(fight_stats[user_id]["Ghost's changed health"], 3)
                 update.message.reply_text(f'_Keeper lost some health because of your words. {points} points left to pass the guard_',
                                           parse_mode='Markdown')
 
@@ -295,19 +295,19 @@ def message(self, update, context):
                     # ach_dict['No escape'] = 1
                     # print_achievements(ach_dict, desc_dict)
                 elif bot_attacked[user_id] == 1:
-                    fight_stats[user_id]['Your health'] = randint(81, 99) * fight_stats[user_id]["Your health"] / 100
+                    fight_stats[user_id]['Your health'] = randint(81, 99) * displayuserhealth / 100
                     update.message.reply_text(
                         "_Ghost's evil tongue filled you heart with despair. "
                         "Your health dropped to {}._".format(fight_stats[user_id]['Your health']),
                         parse_mode='Markdown')
                 elif bot_attacked[user_id] == 2:
-                    fight_stats[user_id]['Your health'] = randint(51, 69) * fight_stats[user_id]["Your health"] / 100
+                    fight_stats[user_id]['Your health'] = randint(51, 69) * displayuserhealth / 100
                     update.message.reply_text(
                         "_Ghost's evil tongue filled you heart with despair. "
                         "Your health dropped to {}._".format(fight_stats[user_id]['Your health']),
                         parse_mode='Markdown')
                 elif bot_attacked[user_id] == 3:
-                    fight_stats[user_id]['Your health'] = randint(25, 48) * fight_stats[user_id]["Your health"] / 100
+                    fight_stats[user_id]['Your health'] = randint(25, 48) * displayuserhealth / 100
                     update.message.reply_text(
                         "_Ghost's evil tongue filled you heart with despair. "
                         "Your health dropped to {}._".format(fight_stats[user_id]['Your health']),
