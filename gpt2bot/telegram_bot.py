@@ -125,6 +125,13 @@ def show_achiev_command(update, context):
             parse_mode='Markdown')
 
 
+# def replay(update):
+#     user_id = update.effective_message.chat_id
+#     if user_id not in user_name:
+#         update.message.reply_text("_How can I address you?_", parse_mode='Markdown')
+#         waiting_for_name[user_id] = True
+
+
 def replay(update):
     user_id = update.effective_message.chat_id
     if user_id not in user_name:
