@@ -326,12 +326,13 @@ def check_insult(text):
     return scores[1]
 
 
-def update_stats(stats, text, displaybothealth, realbothealth, changedhealth):
+def update_stats(stats, text, displaybothealth, realbothealth):
     insult_sc = check_insult(text)
     if insult_sc > 0.55:
-        changedhealth = changedhealth - insult_sc
-        stats["Ghost's health"] = displaybothealth*round(changedhealth/realbothealth, 2)
-    return stats, changedhealth
+        stats["Ghost's changed health"] = stats["Ghost's changed health"] - insult_sc
+        stats["Ghost's health"] = displaybothealth*round(stats["Ghost's changed health"]/realbothealth, 2)
+        # stats["Ghost's changed health"] = changedhealth
+    return stats
 
 
 def build_ranker_dict(**kwargs):
@@ -383,6 +384,31 @@ def generate_scores(prompt, responses, pipeline, **kwargs):
 
     outputs = pipeline(responses, **kwargs)
     return [output['score'] for output in outputs]
+
+
+def generate_achievements():
+    achievements = ['Munchkin',
+                    'True Companion Cube',
+                    'Run',
+                    'No transformer will ever stop me',
+                    'No escape',
+                    'Creebly crubly booms',
+                    'Cyberpunk 2021']
+    descriptions = ["You earned Bot's trust in less than 10 turns",
+                    "You showed the poor ghost what a true friendship is like",
+                    "Generative pre-trained transformer was scarier than any creature you previously met in your bounty hunter life",
+                    "You mastered your language models understanding",
+                    "If only text generation could stop...",
+                    "крибли крабли бумс!",
+                    "True cyberpunk is conversing with GPT and not what you were presented with.\nCongratulations on getting every storyline trophy!"]
+    ach_dict = {}
+    desc_dict = {}
+    for n, ach in enumerate(achievements):
+        ach_dict[ach] = 0
+        desc_dict[ach] = descriptions[n]
+    user_ach_dict = {}
+    user_ach_dict['Labels'], user_ach_dict['Descriptions'] = ach_dict, desc_dict
+    return user_ach_dict
 
 
 def pick_best_response(prompt, responses, ranker_dict, debug=False):
