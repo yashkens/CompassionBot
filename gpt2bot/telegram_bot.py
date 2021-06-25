@@ -299,7 +299,7 @@ def message(self, update, context):
             mes_count[user_id] = 0
             replay(update)
             return
-        elif user_scores[user_id] == -1:
+        elif user_scores[user_id] == -5:
             update.message.reply_text(last_neg_reply, parse_mode='Markdown')
             update.message.reply_text(neg_ending, parse_mode='Markdown')
             time.sleep(1)
