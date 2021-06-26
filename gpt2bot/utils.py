@@ -17,20 +17,20 @@ import csv
 import urllib.request
 from collections import defaultdict
 
-
+# загружаем модели для сентимент и инсульт анализа
 sentiment_tokenizer = AutoTokenizer.from_pretrained("cardiffnlp/twitter-roberta-base-sentiment")
 sentiment_model = AutoModelForSequenceClassification.from_pretrained("cardiffnlp/twitter-roberta-base-sentiment")
 
 insult_tokenizer = AutoTokenizer.from_pretrained("cardiffnlp/twitter-roberta-base-offensive")
 insult_model = AutoModelForSequenceClassification.from_pretrained("cardiffnlp/twitter-roberta-base-offensive")
 
-
-# labels=[]
+# скачиваем лейблы для сентимент анализа
 mapping_link = f"https://raw.githubusercontent.com/cardiffnlp/tweeteval/main/datasets/sentiment/mapping.txt"
 with urllib.request.urlopen(mapping_link) as f:
     html = f.read().decode('utf-8').split("\n")
     csvreader = csv.reader(html, delimiter='\t')
 labels = [row[1] for row in csvreader if len(row) > 1]
+
 
 class CustomFormatter(logging.Formatter):
     """Logging Formatter to add colors and count warning / errors"""
@@ -186,12 +186,6 @@ def parse_config(config_path):
     )
 
 
-# def load_pipeline(task, **kwargs):
-#     """Load a pipeline."""
-#     logger.info(f"Loading the pipeline '{kwargs.get('model')}'...")
-#
-#     return transformers.pipeline(task, **kwargs)
-
 def load_pipeline(task, **kwargs):
     """Load a pipeline."""
     logger.info(f"Loading the pipeline '{kwargs.get('model')}'...")
@@ -202,6 +196,7 @@ def load_pipeline(task, **kwargs):
     return model, tokenizer
 
 
+# функция для определения и замены вокативов
 def replace_vocatives(sentence, username):
   doc = nlp(sentence)
   sent_vocs = []
@@ -233,7 +228,6 @@ def replace_vocatives(sentence, username):
 
 
 def clean_text(reply):
-    """Remove unnecessary spaces."""
     reply = reply.replace('\\', '')
     reply = re.sub('\[((negative)|(positive)|(neutral))\]', '', reply)
     reply = reply.split('||')[0]
@@ -242,13 +236,11 @@ def clean_text(reply):
     reply = re.sub(',([,.!?$])', '\g<1>', reply)  # супер частный случай - удаляем запятую перед другой пунктуацией
     reply = re.sub(' +', ' ', reply)  # схлопываем пробелы
     reply = reply.lstrip(', .?!').rstrip(', ')
+    reply = reply.replace('!,', '!').replace('?,', '?')
     return reply
 
 
 def generate_responses(bot_input_ids, pipeline, tokenizer, seed=None, debug=False, **kwargs):
-    """Generate responses using a text generation pipeline."""
-
-    # outputs = pipeline(prompt, **kwargs)
     chat_history_ids = pipeline.generate(
         bot_input_ids, max_length=300,
         min_length=20,
@@ -260,10 +252,7 @@ def generate_responses(bot_input_ids, pipeline, tokenizer, seed=None, debug=Fals
         temperature=0.8,
         length_penalty=1.1,
     )
-    # responses = list(map(lambda x: clean_text(x['generated_text'][len(prompt):]), outputs))
 
-    # if debug:
-    #     logger.debug(dict(responses=responses))
     return chat_history_ids
 
 
@@ -311,7 +300,7 @@ def castspell(user_input):
         dup_postfix = re.search('(?:\w)[oeiua]([^oeiau]+)?$', dup).group(0)
     except AttributeError:
         return dup + ' ' + user_input
-    if len(tokens)>1:
+    if len(tokens) > 1:
         line = ' '.join(tokens[:-1])
         return f'{dup} {line} {last_token}{dup_postfix}{postfix}'.strip('!')+'!'
     else:
@@ -331,10 +320,35 @@ def update_stats(stats, text, displaybothealth, realbothealth):
     if insult_sc > 0.55:
         stats["Ghost's changed health"] = stats["Ghost's changed health"] - insult_sc
         stats["Ghost's health"] = displaybothealth*round(stats["Ghost's changed health"]/realbothealth, 2)
-        # stats["Ghost's changed health"] = changedhealth
     return stats
 
 
+def generate_achievements():
+    achievements = ['Munchkin',
+                    'True Companion Cube',
+                    'Run',
+                    'No transformer will ever stop me',
+                    'No escape',
+                    'Creebly crubly booms',
+                    'Cyberpunk 2021']
+    descriptions = ["You earned Bot's trust in less than 10 turns",
+                    "You showed the poor ghost what a true friendship is like",
+                    "Generative pre-trained transformer was scarier than any creature you previously met in your bounty hunter life",
+                    "You've mastered your language models understanding",
+                    "If only text generation could stop...",
+                    "крибли крабли бумс!",
+                    "True cyberpunk is conversing with GPT and not what you were presented with.\nCongratulations on getting every storyline trophy!"]
+    ach_dict = {}
+    desc_dict = {}
+    for n, ach in enumerate(achievements):
+        ach_dict[ach] = 0
+        desc_dict[ach] = descriptions[n]
+    user_ach_dict = {}
+    user_ach_dict['Labels'], user_ach_dict['Descriptions'] = ach_dict, desc_dict
+    return user_ach_dict
+
+# это ненужная нам функция, оставшаяся от авторов оригинального кода
+# мы не выбираем ответы, а всегда генерируем один
 def build_ranker_dict(**kwargs):
     """Build dictionary of ranker weights and pipelines."""
     kwargs = kwargs.copy()
@@ -378,6 +392,7 @@ def build_ranker_dict(**kwargs):
     return ranker_dict
 
 
+# это тоже не наше и нам не нужно
 def generate_scores(prompt, responses, pipeline, **kwargs):
     """Generate scores using a text classification pipeline."""
     responses = [prompt + response for response in responses]
@@ -386,74 +401,5 @@ def generate_scores(prompt, responses, pipeline, **kwargs):
     return [output['score'] for output in outputs]
 
 
-def generate_achievements():
-    achievements = ['Munchkin',
-                    'True Companion Cube',
-                    'Run',
-                    'No transformer will ever stop me',
-                    'No escape',
-                    'Creebly crubly booms',
-                    'Cyberpunk 2021']
-    descriptions = ["You earned Bot's trust in less than 10 turns",
-                    "You showed the poor ghost what a true friendship is like",
-                    "Generative pre-trained transformer was scarier than any creature you previously met in your bounty hunter life",
-                    "You mastered your language models understanding",
-                    "If only text generation could stop...",
-                    "крибли крабли бумс!",
-                    "True cyberpunk is conversing with GPT and not what you were presented with.\nCongratulations on getting every storyline trophy!"]
-    ach_dict = {}
-    desc_dict = {}
-    for n, ach in enumerate(achievements):
-        ach_dict[ach] = 0
-        desc_dict[ach] = descriptions[n]
-    user_ach_dict = {}
-    user_ach_dict['Labels'], user_ach_dict['Descriptions'] = ach_dict, desc_dict
-    return user_ach_dict
-
-
-def pick_best_response(prompt, responses, ranker_dict, debug=False):
-    """Pick the best response according to the weighted average of scores."""
-    if len(ranker_dict) == 0:
-        return random.choice(responses)
-
-    def _get_wa_group_scores(group_name):
-        group_scores = 0
-        group_weight_sum = 0
-        for model_name, dct in ranker_dict.items():
-            if dct['group'] == group_name:
-                scores = np.array(generate_scores(
-                    prompt,
-                    responses,
-                    dct['pipeline']
-                ))
-                if debug:
-                    logger.debug(dict(
-                        group=group_name,
-                        model=model_name,
-                        model_scores=scores,
-                        model_weight=dct['weight']
-                    ))
-                group_scores += scores * dct['weight']
-                group_weight_sum += dct['weight']
-        group_scores /= group_weight_sum
-        return group_scores
-
-    group_names = list(map(lambda x: x['group'], ranker_dict.values()))
-    if 'prior' in group_names:
-        prior_scores = _get_wa_group_scores('prior')
-        if debug:
-            logger.debug(dict(prior_scores=prior_scores))
-    else:
-        prior_scores = 1
-    if 'cond' in group_names:
-        cond_scores = _get_wa_group_scores('cond')
-        if debug:
-            logger.debug(dict(cond_scores=cond_scores))
-    else:
-        cond_scores = 1
-    final_scores = prior_scores * cond_scores
-    if debug:
-        logger.debug(dict(final_scores=final_scores))
-    return responses[np.argmax(final_scores)]
-
 # python run_bot.py --type=telegram --config=configs/medium-cpu-our.cfg
+# python3 run_bot.py --type=telegram --config=configs/medium-cpu-our.cfg

@@ -27,8 +27,6 @@ logger = setup_logger(__name__)
 
 
 def start_command(update, context):
-    """Start a new dialogue when user sends the command "/start"."""
-
     logger.debug(f"{update.effective_message.chat_id} - User: /start")
     update.message.reply_text("Greetings, Wanderer! "
                               "You successfully escaped the Lair of Charybdis on your quest for the Old Kingdom. "
@@ -57,18 +55,26 @@ def help_command(update, context):
                               "Observe. Think what made a good spell.\n\n"
                               "Keeper is a ghost :) "
                               "It may take different forms, that might remind you of various stories of the past.\n\n"
-                              "A game by @yashkens, @mjolnika and gpt-2 :)")
-                              # parse_mode='Markdown')
+                              "A game by @yashkens, @mjolnika and gpt-2\nNapstablook from icon by toby fox")
 
-# def reset_command(update, context):
-#     """Reset the dialogue when user sends the command "/reset"."""
-#
-#     logger.debug(f"{update.effective_message.chat_id} - User: /stop_game")
-#     user_histories[update.effective_message.chat_id] = None
-#     user_scores[update.effective_message.chat_id] = 0
-#     user_warnings[update.effective_message.chat_id]['had_negative'] = False
-#     user_warnings[update.effective_message.chat_id]['had_positive'] = False
-#     update.message.reply_text("Beep beep!")
+
+def clear_all_stats(update, user_id):
+    user_histories[user_id] = None
+    user_scores[user_id] = 0
+    user_warnings[user_id]['had_negative'] = False
+    user_warnings[user_id]['had_positive'] = False
+    mes_count[user_id] = 0
+    fight_mode[user_id] = False
+    if user_id in fight_stats:
+        fight_stats.pop(user_id)
+    if user_id in user_name:
+        user_name.pop(user_id)
+
+
+def reset_command(update, context):
+    logger.debug(f"{update.effective_message.chat_id} - User: /reset")
+    clear_all_stats(update, update.effective_message.chat_id)
+    replay(update)
 
 
 def show_scores_command(update, context):
@@ -85,10 +91,15 @@ def fight_stats_command(update, context):
     user_id = update.effective_message.chat_id
     logger.debug(f"{user_id} - User: /show_fight_stats")
     if user_id not in fight_stats:
-        update.message.reply_text(
-            "_Your current health is 100.\nBot's current health is 100._\n"
-            "_You haven't started fighting yet!_",
-            parse_mode='Markdown')
+        if not fight_mode[user_id]:
+            update.message.reply_text(
+                "_You are out of the fight mode!_",
+                parse_mode='Markdown')
+        else:
+            update.message.reply_text(
+                "_Your current health is 100.\nBot's current health is 100._\n"
+                "_You haven't started fighting yet!_",
+                parse_mode='Markdown')
         return
     if fight_mode[user_id]:
         update.message.reply_text(
@@ -125,18 +136,22 @@ def show_achiev_command(update, context):
             parse_mode='Markdown')
 
 
-# def replay(update):
-#     user_id = update.effective_message.chat_id
-#     if user_id not in user_name:
-#         update.message.reply_text("_How can I address you?_", parse_mode='Markdown')
-#         waiting_for_name[user_id] = True
-
-
 def replay(update):
     user_id = update.effective_message.chat_id
     if user_id not in user_name:
         update.message.reply_text("_How can I address you?_", parse_mode='Markdown')
         waiting_for_name[user_id] = True
+
+
+def add_cyberpunk_achievement(update, user_id):
+    if achievements[user_id]['Labels']['Cyberpunk 2021'] == 1:
+        return
+    achievements[user_id]['Labels']['Cyberpunk 2021'] = 1
+    update.message.reply_text(
+        "\U0001F3C6 _New achievement!_\n"
+        "\U0001F451 *Cyberpunk 2021* \U0001F451\n{}".format(
+            achievements[user_id]['Descriptions']['Cyberpunk 2021']),
+        parse_mode='Markdown')
 
 
 def requests_retry_session(retries=3, backoff_factor=0.3, status_forcelist=(500, 502, 504), session=None):
@@ -202,8 +217,9 @@ spell_dict = {
     3: '{}: \*+:｡.｡`{}`｡.｡:+\*'
 }
 
-last_pos_reply = "Embarrassing... My life was lived in vain. I think I can rest in peace now, learning compassion " \
-                  "for the first time in my poor life. Bless you, young man."
+last_pos_reply = "Embarrassing... I haven't talked to anyone like that in hundreds of years. " \
+                 "It seems I've grown tired of my eternal duty. " \
+                 "Thank you for talking to me, young man. Finally I can rest in peace."
 pos_ending = "_Congratulations! You earned the Bot's trust. Now you can continue the quest!_"
 last_pos_action = "_The ghost vanished and left you alone with an eerie feeling._"
 
@@ -226,15 +242,8 @@ def message(self, update, context):
     if user_id not in mes_count:
         mes_count[user_id] = 0
 
-    logger.debug('ach count {}'.format(ach_count[user_id]))
-    if ach_count[user_id] == 5:
-        achievements[user_id]['Labels']['Cyberpunk 2021'] = 1
-        update.message.reply_text(
-            "\U0001F3C6 _New achievement!_\n"
-            "\U0001F451 *Cyberpunk 2021* \U0001F451\n{}".format(
-                achievements[user_id]['Descriptions']['Cyberpunk 2021']),
-            parse_mode='Markdown')
-        ach_count[user_id] += 1
+    if ach_count[user_id] >= 5:
+        add_cyberpunk_achievement(update, user_id)
 
     # получаем имя, если нужно
     if user_id not in waiting_for_name:
@@ -246,6 +255,7 @@ def message(self, update, context):
         update.message.reply_text("_Now let's start the game!_\n_Start typing something!_", parse_mode='Markdown')
         return
 
+    # если не деремся, то генерируем обычный ответ
     if not fight_mode[user_id]:
         if user_id not in user_scores:
             user_scores[user_id] = 0
@@ -269,45 +279,40 @@ def message(self, update, context):
         # заканчиваем игру, если пора заканчивать
         if user_scores[user_id] == 7:
             # добавляем ачивки
+            if achievements[user_id]['Labels']['True Companion Cube'] != 1:
+                ach_count[user_id] += 1
             achievements[user_id]['Labels']['True Companion Cube'] = 1
             update.message.reply_text(
                 "\U0001F3C6  _New achievement!_\n"
                 "\U0001F495 *True Companion Cube* \U0001F495\n{}".format(
                     achievements[user_id]['Descriptions']['True Companion Cube']),
                 parse_mode='Markdown')
-            ach_count[user_id] += 1
+
             if mes_count[user_id] < 10:
                 time.sleep(1)
+                if achievements[user_id]['Labels']['Munchkin'] != 1:
+                    ach_count[user_id] += 1
                 achievements[user_id]['Labels']['Munchkin'] = 1
                 update.message.reply_text(
                     "\U0001F3C6  _New achievement!_\n"
                     "\U0001F970 *Munchkin* \U0001F970\n{}".format(
                         achievements[user_id]['Descriptions']['Munchkin']),
                     parse_mode='Markdown')
-                ach_count[user_id] += 1
+
             update.message.reply_text(last_pos_reply, parse_mode='Markdown')
             update.message.reply_text(last_pos_action, parse_mode='Markdown')
             time.sleep(1)
             update.message.reply_text(pos_ending, parse_mode='Markdown')
             update.message.reply_text('Restarting the game...', parse_mode='Markdown')
             time.sleep(3)
-            user_histories[update.effective_message.chat_id] = None
-            user_scores[update.effective_message.chat_id] = 0
-            user_warnings[user_id]['had_negative'] = False
-            user_warnings[user_id]['had_positive'] = False
-            user_name.pop(user_id)
-            mes_count[user_id] = 0
+            clear_all_stats(update, user_id)
             replay(update)
             return
         elif user_scores[user_id] == -5:
             update.message.reply_text(last_neg_reply, parse_mode='Markdown')
             update.message.reply_text(neg_ending, parse_mode='Markdown')
             time.sleep(1)
-            user_histories[update.effective_message.chat_id] = None
-            user_scores[update.effective_message.chat_id] = 0
-            user_warnings[user_id]['had_negative'] = False
-            user_warnings[user_id]['had_positive'] = False
-            mes_count[user_id] = 0
+            clear_all_stats(update, user_id)
             custom_keyboard = [[InlineKeyboardButton(text='Yes', callback_data='y'),
                                 InlineKeyboardButton(text='No', callback_data='n')]]
             markup = InlineKeyboardMarkup(custom_keyboard, resize_keyboard=True, one_time_keyboard=True)
@@ -345,14 +350,13 @@ def message(self, update, context):
         user_histories[user_id] = chat_history_ids
 
         logger.debug(f"{update.effective_message.chat_id} - Bot: {output_text}")
-        # Return response as text
         update.message.reply_text(output_text)
         mes_count[user_id] += 1
         logger.debug(mes_count[user_id])
     else:
         displaybothealth = 100
         realbothealth = 5
-        changedhealth = realbothealth
+        # changedhealth = realbothealth
         displayuserhealth = 100
         if user_id not in fight_stats:
             fight_stats[user_id] = defaultdict(int)
@@ -361,7 +365,6 @@ def message(self, update, context):
             fight_stats[user_id]["Ghost's changed health"] = realbothealth
         if "Your health" not in fight_stats[user_id]:
             fight_stats[user_id]["Your health"] = displayuserhealth
-        # fight_stats[user_id]["Your changed health"] = changedhealth
         number = randint(605, 695)
 
         if number == 666:
@@ -386,26 +389,21 @@ def message(self, update, context):
             fight_stats[user_id] = update_stats(fight_stats[user_id], spell, displaybothealth, realbothealth)
             if fight_stats[user_id]["Ghost's changed health"] < 0:
                 # добавляем ачивку
+                if achievements[user_id]['Labels']['No transformer will ever stop me'] != 1:
+                    ach_count[user_id] += 1
                 achievements[user_id]['Labels']['No transformer will ever stop me'] = 1
                 update.message.reply_text(
                     "\U0001F3C6  _New achievement!_\n"
                     "\U0001F4AA *No transformer will ever stop me* \U0001F4AA\n{}".format(
                         achievements[user_id]['Descriptions']['No transformer will ever stop me']),
                     parse_mode='Markdown')
-                ach_count[user_id] += 1
+
                 time.sleep(3)
                 update.message.reply_text(
                     "_Congratulations! You defeated the Ghost. Now you may return to your quest and enter the other dimension!_",
                     parse_mode='Markdown')
                 time.sleep(1)
-                user_histories[user_id] = None
-                user_scores[user_id] = 0
-                user_warnings[user_id]['had_negative'] = False
-                user_warnings[user_id]['had_positive'] = False
-                mes_count[user_id] = 0
-                fight_mode[user_id] = False
-                fight_stats.pop(user_id)
-                user_name.pop(user_id)
+                clear_all_stats(update, user_id)
                 update.message.reply_text(
                     "_Restarting the game..._",
                     parse_mode='Markdown')
@@ -424,7 +422,6 @@ def message(self, update, context):
                     update.message.reply_text(s,
                                               parse_mode='Markdown')
 
-                # определим сентимент и прибавим/убавим скоры
                 if user_id not in user_histories:
                     user_histories[user_id] = None
                 chat_history_ids = user_histories[user_id]
@@ -460,13 +457,15 @@ def message(self, update, context):
                     bot_attacked[user_id] += 1
                     if bot_attacked[user_id] == 4:
                         # добавляем ачивку
+                        if achievements[user_id]['Labels']['No escape'] != 1:
+                            ach_count[user_id] += 1
                         achievements[user_id]['Labels']['No escape'] = 1
                         update.message.reply_text(
                             "\U0001F3C6 _New achievement!_\n"
                             "\U0001F480 *No escape* \U0001F480\n {}".format(
                                 achievements[user_id]['Descriptions']['No escape']),
                             parse_mode='Markdown')
-                        ach_count[user_id] += 1
+
                         time.sleep(3)
                         update.message.reply_text(
                             '_Game over. You became a ghost. Now your fate is to listen eternally to GPT gibberish._',
@@ -475,9 +474,7 @@ def message(self, update, context):
                         update.message.reply_text(
                             "_Restarting the game..._",
                             parse_mode='Markdown')
-                        fight_mode[user_id] = False
-                        user_name.pop(user_id)
-                        fight_stats.pop(user_id)
+                        clear_all_stats(update, user_id)
                         replay(update)
                     elif bot_attacked[user_id] == 1:
                         fight_stats[user_id]['Your health'] = randint(81, 99) * displayuserhealth / 100
@@ -498,15 +495,8 @@ def message(self, update, context):
                             "Your health dropped to {}._".format(fight_stats[user_id]['Your health']),
                             parse_mode='Markdown')
 
-            logger.debug('ach count {}'.format(ach_count[user_id]))
-            if ach_count[user_id] == 5:
-                achievements[user_id]['Labels']['Cyberpunk 2021'] = 1
-                update.message.reply_text(
-                    "\U0001F3C6 _New achievement!_\n"
-                    "\U0001F451 *Cyberpunk 2021* \U0001F451\n{}".format(
-                        achievements[user_id]['Descriptions']['Cyberpunk 2021']),
-                    parse_mode='Markdown')
-                ach_count[user_id] += 1
+            if ach_count[user_id] >= 5:
+                add_cyberpunk_achievement(update, user_id)
 
 def error(update, context):
     logger.error(context)
@@ -521,13 +511,14 @@ def no_callback(update, context):
     message.reply_text('Coward!')
     time.sleep(3)
     # добавляем ачивку
+    if achievements[user_id]['Labels']['Run'] != 1:
+        ach_count[user_id] += 1
     achievements[user_id]['Labels']['Run'] = 1
     message.reply_text(
         "\U0001F3C6 _New achievement!_\n"
         "\U0001F921 *Run* \U0001F921\n{}".format(
             achievements[user_id]['Descriptions']['Run']),
         parse_mode='Markdown')
-    ach_count[user_id] += 1
     time.sleep(3)
     message.reply_text('_The game is over._\n_Restarting the game..._', parse_mode='Markdown')
     time.sleep(3)
@@ -536,14 +527,8 @@ def no_callback(update, context):
         message.reply_text("_How can I address you?_", parse_mode='Markdown')
         waiting_for_name[user_id] = True
 
-    if ach_count[user_id] == 5:
-        achievements[user_id]['Labels']['Cyberpunk 2021'] = 1
-        message.reply_text(
-            "\U0001F3C6 _New achievement!_\n"
-            "\U0001F451 *Cyberpunk 2021* \U0001F451\n {}".format(
-                achievements[user_id]['Descriptions']['Cyberpunk 2021']),
-            parse_mode='Markdown')
-        ach_count[user_id] += 1
+    if ach_count[user_id] >= 5:
+        add_cyberpunk_achievement(update, user_id)
     cq.answer()
 
 
@@ -560,6 +545,7 @@ def yes_callback(update, context):
                        "Type your first spell!", parse_mode='Markdown')
     fight_mode[user_id] = True
     cq.answer()
+
 
 class TelegramBot:
     """Telegram bot based on python-telegram-bot."""
@@ -626,8 +612,8 @@ class TelegramBot:
         # Add command, message and error handlers
         dp = self.updater.dispatcher
         dp.add_handler(CommandHandler('start', start_command))
+        dp.add_handler(CommandHandler('reset', reset_command))
         dp.add_handler(CommandHandler('help', help_command))
-        # dp.add_handler(CommandHandler('stop_game', reset_command))
         dp.add_handler(CommandHandler('show_scores',show_scores_command))
         dp.add_handler(CommandHandler('show_fight_stats', fight_stats_command))
         dp.add_handler(CommandHandler('show_achievements', show_achiev_command))
