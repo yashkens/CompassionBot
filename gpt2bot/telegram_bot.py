@@ -69,6 +69,8 @@ def clear_all_stats(update, user_id):
         fight_stats.pop(user_id)
     if user_id in user_name:
         user_name.pop(user_id)
+    if user_id in bot_attacked:
+        bot_attacked.pop(user_id)
 
 
 def reset_command(update, context):
@@ -420,6 +422,7 @@ def message(self, update, context):
                 fight_mode[user_id] = False
                 fight_stats.pop(user_id)
                 user_name.pop(user_id)
+                bot_attacked.pop(user_id)
                 update.message.reply_text(
                     "_Restarting the game..._",
                     parse_mode='Markdown')
@@ -493,6 +496,7 @@ def message(self, update, context):
                         fight_mode[user_id] = False
                         user_name.pop(user_id)
                         fight_stats.pop(user_id)
+                        bot_attacked.pop(user_id)
                         replay(update)
                     elif bot_attacked[user_id] == 1:
                         fight_stats[user_id]['Your health'] = randint(81, 99) * displayuserhealth / 100
