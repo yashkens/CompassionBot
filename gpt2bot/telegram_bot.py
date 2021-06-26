@@ -490,7 +490,9 @@ def message(self, update, context):
                         update.message.reply_text(
                             "_Restarting the game..._",
                             parse_mode='Markdown')
-                        clear_all_stats(update, user_id)
+                        fight_mode[user_id] = False
+                        user_name.pop(user_id)
+                        fight_stats.pop(user_id)
                         replay(update)
                     elif bot_attacked[user_id] == 1:
                         fight_stats[user_id]['Your health'] = randint(81, 99) * displayuserhealth / 100
