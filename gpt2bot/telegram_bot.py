@@ -305,7 +305,12 @@ def message(self, update, context):
             update.message.reply_text(pos_ending, parse_mode='Markdown')
             update.message.reply_text('Restarting the game...', parse_mode='Markdown')
             time.sleep(3)
-            clear_all_stats(update, user_id)
+            user_histories[update.effective_message.chat_id] = None
+            user_scores[update.effective_message.chat_id] = 0
+            user_warnings[user_id]['had_negative'] = False
+            user_warnings[user_id]['had_positive'] = False
+            user_name.pop(user_id)
+            mes_count[user_id] = 0
             replay(update)
             return
         elif user_scores[user_id] == -5:
@@ -407,7 +412,14 @@ def message(self, update, context):
                     "_Congratulations! You defeated the Ghost. Now you may return to your quest and enter the other dimension!_",
                     parse_mode='Markdown')
                 time.sleep(1)
-                clear_all_stats(update, user_id)
+                user_histories[user_id] = None
+                user_scores[user_id] = 0
+                user_warnings[user_id]['had_negative'] = False
+                user_warnings[user_id]['had_positive'] = False
+                mes_count[user_id] = 0
+                fight_mode[user_id] = False
+                fight_stats.pop(user_id)
+                user_name.pop(user_id)
                 update.message.reply_text(
                     "_Restarting the game..._",
                     parse_mode='Markdown')
