@@ -312,7 +312,11 @@ def message(self, update, context):
             update.message.reply_text(last_neg_reply, parse_mode='Markdown')
             update.message.reply_text(neg_ending, parse_mode='Markdown')
             time.sleep(1)
-            clear_all_stats(update, user_id)
+            user_histories[user_id] = None
+            user_scores[user_id] = 0
+            user_warnings[user_id]['had_negative'] = False
+            user_warnings[user_id]['had_positive'] = False
+            mes_count[user_id] = 0
             custom_keyboard = [[InlineKeyboardButton(text='Yes', callback_data='y'),
                                 InlineKeyboardButton(text='No', callback_data='n')]]
             markup = InlineKeyboardMarkup(custom_keyboard, resize_keyboard=True, one_time_keyboard=True)
